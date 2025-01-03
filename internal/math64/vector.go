@@ -1,4 +1,4 @@
-package physics
+package math64
 
 import (
 	"fmt"
