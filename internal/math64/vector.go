@@ -51,7 +51,7 @@ func (v *Vector3) Add(s Vector3) {
 	v.Z += s.Z
 }
 
-// AddCopy returns a Vector3 of components of s added to v.
+// Add returns a Vector3 of components of s added to v.
 func (v Vector3) AddCopy(s Vector3) Vector3 {
 	return Vector3{
 		X: v.X + s.X,
@@ -67,7 +67,7 @@ func (v *Vector3) Sub(s Vector3) {
 	v.Z -= s.Z
 }
 
-// SubCopy returns a Vector3 of components of s added to v.
+// Sub returns a Vector3 of components of s added to v.
 func (v Vector3) SubCopy(s Vector3) Vector3 {
 	return Vector3{
 		X: v.X - s.X,
@@ -92,6 +92,14 @@ func (v *Vector3) AddScaledVector(s Vector3, k float64) {
 	v.Z += s.Z * k
 }
 
+func (v Vector3) AddScaledVectorCopy(s Vector3, k float64) Vector3 {
+	return Vector3{
+		X: v.X + s.X*k,
+		Y: v.Y + s.Y*k,
+		Z: v.Z + s.Z*k,
+	}
+}
+
 // ComponentProduct modifies v.
 func (v *Vector3) Component(s Vector3) {
 	v.X *= s.X
@@ -107,10 +115,12 @@ func (v Vector3) ComponentCopy(s Vector3) Vector3 {
 	}
 }
 
+// Dot computes the dot product of two vectors and returns its scalar.
 func (v Vector3) Dot(s Vector3) float64 {
 	return v.X*s.X + v.Y*s.Y + v.Z*s.Z
 }
 
+// Cross computes the cross product of two vectors and returns the vector.
 func (v Vector3) Cross(s Vector3) Vector3 {
 	epsilon := 1e-9
 	cross := Vector3{
@@ -133,7 +143,7 @@ func (v Vector3) Cross(s Vector3) Vector3 {
 	return cross
 }
 
-// Magnitude computes the magnitude of a Vector3.
+// Magnitude computes the magnitude of a Vector3 and returns that scalar.
 func (v Vector3) Magnitude() float64 {
 	return math.Sqrt(v.lengthSquared())
 }
@@ -143,29 +153,33 @@ func (v Vector3) lengthSquared() float64 {
 	return v.X*v.X + v.Y*v.Y + v.Z*v.Z
 }
 
-// Normalize resizes a Vector3 with a unit length of 1, i.e., turns it into a unit vector.
-func (v *Vector3) Normalize() {
+// Normalize resizes a Vector3 with a unit length of 1, i.e., turns it into a unit vector, and
+// returns a copy of this normalized vector.
+func (v Vector3) Normalize() Vector3 {
 	n := v.Magnitude()
 	if n > 0 {
-		v.X *= 1.0 / n
-		v.Y *= 1.0 / n
-		v.Z *= 1.0 / n
+		return Vector3{v.X / n, v.Y / n, v.Z / n}
+	} else {
+		return Vector3{}
 	}
 }
 
 // makeOrthonormalBasis offers a primitive orthogonalization algorithm for three vectors.
-func makeOrthonormalBasis(a, b, c *Vector3) error {
-	a.Normalize()
-	*c = a.Cross(*b)
+// This refactored version avoids modifying the parameters as pointers and instead returns
+// the orthonormal basis vectors themselves.
+func makeOrthonormalBasis(a, b Vector3) (Vector3, Vector3, Vector3, error) {
+	normA := a.Normalize()
+	c := normA.Cross(b)
 
-	// NOTE: a and b must NOT be parallel
+	// A and B can NOT be parallel.
 	if c.lengthSquared() == 0 {
-		return fmt.Errorf("a and b are parallel")
+		return Vector3{}, Vector3{}, Vector3{}, fmt.Errorf("a and b are parallel")
 	}
 
-	c.Normalize()
-	// ensure b is orthogonal to a, as a and c are already orthogonal
+	normC := c.Normalize()
+	// Ensure B is orthogonal to A, using the fact that A and C are already orthogonal
 	// and normalized.
-	*b = c.Cross(*a)
-	return nil
+	normB := normC.Cross(normA)
+
+	return normA, normB, normC, nil
 }
