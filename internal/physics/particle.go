@@ -1,6 +1,7 @@
 package physics
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/user54778/cyclone/internal/math64"
@@ -22,7 +23,7 @@ type Particle struct {
 	// inverseMass is more useful to hold since it makes integration simpler
 	// and is more useful to have objects with infinite mass (i.e., walls, floors, etc)
 	// than storing mass itself, which could (although shouldn't) have zero mass.
-	// This field is set with mass/inverseMass setters and private to help with this.
+	// This field is equipped with mass/inverseMass setters and private to help with this.
 	inverseMass float64
 }
 
@@ -73,7 +74,7 @@ func (p *Particle) SetInverseMass(inverseMass float64) {
 }
 
 // Mass is used to access the mass of the particle directly.
-func (p Particle) Mass() float64 {
+func (p *Particle) Mass() float64 {
 	if p.inverseMass == 0 {
 		return math.Inf(1) // NOTE: Mass is positively infinite.
 	} else {
@@ -82,6 +83,43 @@ func (p Particle) Mass() float64 {
 }
 
 // inverseMass accesses the inverseMass directly.
-func (p Particle) InverseMass() float64 {
+func (p *Particle) InverseMass() float64 {
 	return p.inverseMass
 }
+
+// Integrate performs Newton-Euler integration, a linear approximation
+// to the correct integral, to integrate
+// a Particle forward in time by duration amount.
+func (p *Particle) Integrate(duration float64) error {
+	switch {
+	case p.inverseMass <= 0.0:
+		return fmt.Errorf("integration is not performed on infinite mass")
+	case duration < 0.0:
+		return fmt.Errorf("can not perform integration on a negative duration")
+	}
+
+	// Update position based on velocity
+	p.Position = p.Position.AddScaledVectorCopy(p.Velocity, duration)
+	// Update velocity based on acceleration
+	p.Velocity = p.Velocity.AddScaledVectorCopy(p.Acceleration, duration)
+
+	// Impose drag on velocity
+	damp := math.Pow(p.Damping, duration)
+	p.Velocity = p.Velocity.ScaleCopy(damp)
+
+	return nil
+}
+
+/*
+  p.Position.AddScaledVector(p.Velocity, duration)
+
+  // Work out acceleration from the force.
+  resultingAcceleration := p.Acceleration
+
+  // Update linear velocity from the acceleration.
+  p.Velocity.AddScaledVector(resultingAcceleration, duration)
+
+  // Impose drag
+  dampingFactor := math.Pow(p.Damping, duration)
+  p.Velocity.Scale(dampingFactor)
+*/
