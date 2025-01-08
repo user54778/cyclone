@@ -86,13 +86,13 @@ func (v Vector3) Invert() Vector3 {
 }
 
 // AddScaledVector adds the components of s to v, scaled by k.
-func (v *Vector3) AddScaledVector(s Vector3, k float64) {
+func (v *Vector3) ScaleAdd(s Vector3, k float64) {
 	v.X += s.X * k
 	v.Y += s.Y * k
 	v.Z += s.Z * k
 }
 
-func (v Vector3) AddScaledVectorCopy(s Vector3, k float64) Vector3 {
+func (v Vector3) ScaleAddCopy(s Vector3, k float64) Vector3 {
 	return Vector3{
 		X: v.X + s.X*k,
 		Y: v.Y + s.Y*k,

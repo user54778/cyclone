@@ -8,7 +8,9 @@ import (
 )
 
 // Particle is the simplest object that can be simulated
-// in a physics system.
+// in a physics system. It is a point mass object; an object
+// with mass, but no size, that CAN move through space but has NO
+// internal degrees of freedom (can't rotate).
 type Particle struct {
 	// Describes linear position of the Particle in the world space.
 	Position math64.Vector3
@@ -87,10 +89,16 @@ func (p *Particle) InverseMass() float64 {
 	return p.inverseMass
 }
 
+// KineticEnergy returns the kinetic energy of a particle, given by the
+// equation: K = 1/2m*mag(v)^2.
+func (p *Particle) KineticEnergy() float64 {
+	return 0.5 * p.Mass() * p.Velocity.Magnitude() * p.Velocity.Magnitude()
+}
+
 // Integrate performs Newton-Euler integration, a linear approximation
-// to the correct integral, to integrate
-// a Particle forward in time by duration amount.
+// to the correct integral, to integrate a Particle forward in time by duration amount.
 func (p *Particle) Integrate(duration float64) error {
+	// TODO: Modify to use a logging error system.
 	switch {
 	case p.inverseMass <= 0.0:
 		return fmt.Errorf("integration is not performed on infinite mass")
@@ -98,28 +106,42 @@ func (p *Particle) Integrate(duration float64) error {
 		return fmt.Errorf("can not perform integration on a negative duration")
 	}
 
-	// Update position based on velocity
-	p.Position = p.Position.AddScaledVectorCopy(p.Velocity, duration)
-	// Update velocity based on acceleration
-	p.Velocity = p.Velocity.AddScaledVectorCopy(p.Acceleration, duration)
+	// NOTE: That I am using pointer methods for Vector operations; copying will result
+	// in thousands of vectors not used due to how often this function will be called.
 
-	// Impose drag on velocity
-	damp := math.Pow(p.Damping, duration)
-	p.Velocity = p.Velocity.ScaleCopy(damp)
+	// Update position based on velocity
+	// NOTE: Go will automatically dereference p since p.Position is
+	// an addressable object.
+	p.Position.ScaleAdd(p.Velocity, duration)
+
+	// Update velocity based on acceleration
+	resultingAcceleration := p.Acceleration
+
+	// Update linear velocity from the acceleration.
+	p.Velocity.ScaleAdd(resultingAcceleration, duration)
+
+	// Impose drag. Match time scales by exponentiating time by drag, counteracting the effects
+	// of the linearity of acceleration integration.
+	// NOTE: Look at exponential decay for rate of change, and why it works here.
+	dampingFactor := math.Pow(p.Damping, duration)
+	p.Velocity.Scale(dampingFactor)
 
 	return nil
 }
 
-/*
-  p.Position.AddScaledVector(p.Velocity, duration)
+// Used purely to measure difference when you don't incorporate time into drag.
+func (p *Particle) IntegrateNoTimeScale(duration float64) error {
+	switch {
+	case p.inverseMass <= 0.0:
+		return fmt.Errorf("integration is not performed on infinite mass")
+	case duration < 0.0:
+		return fmt.Errorf("can not perform integration on a negative duration")
+	}
 
-  // Work out acceleration from the force.
-  resultingAcceleration := p.Acceleration
+	p.Position.ScaleAdd(p.Velocity, duration)
 
-  // Update linear velocity from the acceleration.
-  p.Velocity.AddScaledVector(resultingAcceleration, duration)
-
-  // Impose drag
-  dampingFactor := math.Pow(p.Damping, duration)
-  p.Velocity.Scale(dampingFactor)
-*/
+	resultingAcceleration := p.Acceleration
+	p.Velocity.ScaleAdd(resultingAcceleration, duration)
+	p.Velocity.Scale(p.Damping)
+	return nil
+}
