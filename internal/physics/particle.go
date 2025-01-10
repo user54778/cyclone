@@ -105,7 +105,6 @@ func (p *Particle) Integrate(duration float64) error {
 	case duration < 0.0:
 		return fmt.Errorf("can not perform integration on a negative duration")
 	}
-
 	// NOTE: That I am using pointer methods for Vector operations; copying will result
 	// in thousands of vectors not used due to how often this function will be called.
 
@@ -122,14 +121,14 @@ func (p *Particle) Integrate(duration float64) error {
 
 	// Impose drag. Match time scales by exponentiating time by drag, counteracting the effects
 	// of the linearity of acceleration integration.
-	// NOTE: Look at exponential decay for rate of change, and why it works here.
 	dampingFactor := math.Pow(p.Damping, duration)
 	p.Velocity.Scale(dampingFactor)
 
 	return nil
 }
 
-// Used purely to measure difference when you don't incorporate time into drag.
+// Deprecated: Only use Integrate() to perform integration. This should only ever be used
+// to compare differences in velocity of the two functions when time is not incorporated in drag.
 func (p *Particle) IntegrateNoTimeScale(duration float64) error {
 	switch {
 	case p.inverseMass <= 0.0:
