@@ -1,3 +1,5 @@
+// Package physics provides various methods to perform point
+// mass physics.
 package physics
 
 import (
@@ -8,8 +10,9 @@ import (
 )
 
 // Particle is the simplest object that can be simulated
-// in a physics system. It is a point mass object; an object
-// with mass, but no size, that CAN move through space but has NO
+// in a physics system.
+//
+// It is a point mass object; an object with mass, but no size, that CAN move through space but has NO
 // internal degrees of freedom (can't rotate).
 type Particle struct {
 	// Describes linear position of the Particle in the world space.
