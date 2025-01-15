@@ -3,10 +3,10 @@
 package physics
 
 import (
-	"fmt"
 	"math"
 
-	m "github.com/user54778/cyclone/internal/math64"
+	"github.com/user54778/cyclone/internal/math64"
+	"github.com/user54778/cyclone/internal/physicslog"
 )
 
 // Particle is the simplest object that can be simulated
@@ -16,12 +16,12 @@ import (
 // internal degrees of freedom (can't rotate).
 type Particle struct {
 	// Describes linear position of the Particle in the world space.
-	Position m.Vector3
+	Position math64.Vector3
 	// Hold linear velocity of the Particle in the world space.
-	Velocity m.Vector3
+	Velocity math64.Vector3
 	// Hold acceleration of the Particle. This can be used to set
 	// acceleration due to gravity, or any other *constant* acceleration.
-	Acceleration m.Vector3
+	Acceleration math64.Vector3
 	// Damping is our solution to give a rough approximation for drag
 	// to apply to our particle in accordance with Newton's First Law.
 	Damping float64
@@ -32,11 +32,11 @@ type Particle struct {
 	inverseMass float64
 	// forceAccumulator accumulates every force to be applied at the next
 	// iteration *only*. It is zeroed at each integration step.
-	forceAccumulator m.Vector3
+	forceAccumulator math64.Vector3
 }
 
-// NewParticleMass creates a Particle object where the MASS itself is passed in as a parameter.
-func NewParticleMass(position, velocity, acceleration m.Vector3, damping, mass float64) Particle {
+// NewParticleMass creates a Particle object where the *mass* itself is passed in as a parameter.
+func NewParticleMass(position, velocity, acceleration math64.Vector3, damping, mass float64) Particle {
 	p := Particle{
 		Position:     position,
 		Velocity:     velocity,
@@ -48,8 +48,8 @@ func NewParticleMass(position, velocity, acceleration m.Vector3, damping, mass f
 	return p
 }
 
-// NewParticleInverseMass creates a Particle object where the INVERSE MASS is passed in as a parameter.
-func NewParticleInverseMass(position, velocity, acceleration m.Vector3, damping, inverseMass float64) Particle {
+// NewParticleInverseMass creates a Particle object where the *inverse mass* is passed in as a parameter.
+func NewParticleInverseMass(position, velocity, acceleration math64.Vector3, damping, inverseMass float64) Particle {
 	p := Particle{
 		Position:     position,
 		Velocity:     velocity,
@@ -90,6 +90,10 @@ func (p *Particle) Mass() float64 {
 	}
 }
 
+func (p *Particle) HasFiniteMass() bool {
+	return p.inverseMass > 0.0
+}
+
 // KineticEnergy returns the kinetic energy of a particle, given by the
 // equation: K = 1/2m*mag(v)^2.
 func (p *Particle) KineticEnergy() float64 {
@@ -97,13 +101,14 @@ func (p *Particle) KineticEnergy() float64 {
 }
 
 // AddForce adds force to the particle to be applied at the next iteration.
-func (p *Particle) AddForce(force m.Vector3) {
+func (p *Particle) AddForce(force math64.Vector3) {
 	p.forceAccumulator.Add(force) // NOTE: This directly adds to the particle's ForceAccumulator,
 	// see if doing this in a functional style does not eat much memory.
 }
 
+// ClearForces sets the forceAccumulator to the zero value for a math64.Vector3.
 func (p *Particle) ClearForces() {
-	p.forceAccumulator = m.Vector3{}
+	p.forceAccumulator = math64.Vector3{}
 }
 
 // Integrate updates the position and velocity of a point mass using equations for constant
@@ -112,11 +117,13 @@ func (p *Particle) Integrate(duration float64) error {
 	// TODO: Modify to use physicslog.
 	switch {
 	case p.inverseMass <= 0.0:
-		return fmt.Errorf("integration is not performed on infinite mass")
+		// return fmt.Errorf("integration is not performed on infinite mass")
+		return newPhysicsError("integration is not performed on infinite mass")
 	case duration <= 0.0:
-		return fmt.Errorf("can not perform integration on a negative duration")
+		// return fmt.Errorf("can not perform integration on a negative duration")
+		return newPhysicsError("can not perform integration on a negative duration")
 	}
-	// NOTE: That I am using pointer methods for Vector operations; copying will result
+	// NOTE: I am using pointer methods for Vector operations; copying will result
 	// in thousands of vectors not used due to how often this function will be called.
 
 	// Update position based on velocity
@@ -141,6 +148,50 @@ func (p *Particle) Integrate(duration float64) error {
 
 	return nil
 }
+
+// PhysicsError represents specific errors relevant to our physics engine.
+type PhysicsError struct {
+	Message string
+}
+
+// Error is used to implement the Error interface.
+func (e *PhysicsError) Error() string {
+	return e.Message
+}
+
+// newPhysicsError creates a physics error object and logs it using PhysicsLogger.
+func newPhysicsError(message string) error {
+	err := &PhysicsError{
+		Message: message,
+	}
+
+	logger := physicslog.NewPhysicsLogger(physicslog.LevelError)
+	logger.LogError(message)
+
+	return err
+}
+
+// ErrorCode represents different specific error codes the particle can throw out.
+/*
+type ErrorCode int
+
+// FIXME: Look into alternate ways to better supply all the errors in the engine.
+const (
+	ErrInfiniteMass ErrorCode = iota
+	ErrNegativeDuration
+)
+
+func (e ErrorCode) String() string {
+	switch e {
+	case ErrInfiniteMass:
+		return "ErrInfiniteMass:"
+	case ErrNegativeDuration:
+		return "ErrNegativeDuration:"
+	default:
+		return ""
+	}
+}
+*/
 
 /*
 // Deprecated: Only use Integrate() to perform integration. This should only ever be used
