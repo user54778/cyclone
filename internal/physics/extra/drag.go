@@ -1,5 +1,6 @@
 package physics
 
+/*
 // DragGenerator is a model to represent a drag force applied to a point mass,
 // where k1 and k2 are two constants that characterize how *strong* the drag force is,
 // named drag coefficients.
@@ -21,7 +22,7 @@ func NewDragGenerator(k1, k2 float64) *DragGenerator {
 	}
 }
 
-func (d *DragGenerator) UpdateForce(particle *Particle, duration float64) {
+func (d *DragGenerator) UpdateForce(particle *Particle, _ float64) {
 	// F_drag = -norm(vel(particle))*(k1*norm(vel(particle)) + k2*norm(vel(particle))^2)
 	force := particle.Velocity
 
@@ -34,3 +35,4 @@ func (d *DragGenerator) UpdateForce(particle *Particle, duration float64) {
 	force = force.ScaleCopy(dragCoeff)
 	particle.AddForce(force)
 }
+*/
