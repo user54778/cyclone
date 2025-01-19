@@ -8,6 +8,8 @@ import (
 
 // TODO: Add tests for add and removal of forces to the registry.
 
+const G = 6.67430e-11
+
 // ForceGenerator defines an interface for objects that can apply forces to one or more particles.
 //
 // If a force generator wants to apply a force, it can call the addForce method to the object that is
@@ -74,7 +76,7 @@ func removeCopy(registry []registry, i int) []registry {
 	return registry[:len(registry)-1]
 }
 
-// GravityGenerator represents a gravity force generator, which only requires the vector in which the gravity acts in.
+// GravityGenerator represents a gravity force generator with a fixed attraction point.
 type GravityGenerator struct {
 	Gravity math64.Vector3
 }
@@ -85,12 +87,61 @@ func NewGravityGenerator(gravity math64.Vector3) *GravityGenerator {
 	}
 }
 
-func (g *GravityGenerator) UpdateForce(particle *Particle, _ float64) {
+// This implementation of UpdateForce applies a mass-scaled force to the particle based
+// on the square of the distance from the attraction point.
+func (g *GravityGenerator) UpdateForce(particle *Particle, duration float64) {
 	if !particle.HasFiniteMass() {
 		return
 	}
 
-	particle.AddForce(g.Gravity.ScaleCopy(particle.Mass()))
+	// Extend the gravity force generator from the previous exercise so that it scales the forces
+	// it applies based on the square of the distance from the attraction point.
+	r := particle.Position.Magnitude()
+	if r <= 0.0001 {
+		return
+	}
+
+	scale := r * r
+
+	force := g.Gravity.ScaleCopy(particle.Mass() * scale)
+	particle.AddForce(force)
+}
+
+// PointGravityGenerator pulls objects toward a fixed point (the attraction point), rather than using the down direction.
+type PointGravityGenerator struct {
+	Center math64.Vector3 // Center of where masses m1 and m2 are attracted
+	g      float64
+}
+
+func NewPointGravityGenerator(center math64.Vector3) *PointGravityGenerator {
+	return &PointGravityGenerator{
+		Center: center,
+		g:      G,
+	}
+}
+
+// This implementation of UpdateForce shall use Newton's Law of Gravitation to compute the magnitude
+// of the attractive force between two bodies.
+//
+// F = G * (m1 * m2) / r^2. We modify this equation for a single (attraction) point, where F = G * m / r^2.
+func (p *PointGravityGenerator) UpdateForce(particle *Particle, duration float64) {
+	direction := math64.NewVector3(p.Center.X-particle.Position.X, p.Center.Y-particle.Position.Y, p.Center.Z-particle.Position.Z)
+
+	r := direction.Magnitude()
+
+	// Avoid truncation towards zero
+	if r <= 0.0001 {
+		return
+	}
+
+	// magnitude of the force to scale by
+	forceMagnitude := (p.g * particle.Mass() / r * r)
+
+	// You will have to calculate the direction to apply the force from the object to the attraction point,
+	// and make sure that it is scaled accordingly.
+	force := direction.Normalize().ScaleCopy(forceMagnitude) // force applied to particle
+
+	particle.AddForce(force)
 }
 
 // DragGenerator is a model to represent a drag force applied to a point mass,
@@ -114,7 +165,7 @@ func NewDragGenerator(k1, k2 float64) *DragGenerator {
 // that depends on *both* the *speed* of the object and the speed squared.
 // The k2 value will grow *faster* at higher speeds-this is why cars don't accelerate infinitely,
 // as for every doubling of speed, the *drag* nearly *quadruples*.
-func (d *DragGenerator) UpdateForce(particle *Particle, _ float64) {
+func (d *DragGenerator) UpdateForce(particle *Particle, duration float64) {
 	// F_drag = -norm(vel(particle))*(k1*norm(vel(particle)) + k2*norm(vel(particle))^2)
 	force := particle.Velocity
 
@@ -147,7 +198,7 @@ func NewUpliftForceGenerator(center math64.Vector3, radius, force float64) *Upli
 }
 
 // UpdateForce updates the UpliftForceGenerator force based on the distance of the particle to the origin of the xz plane.
-func (u *UpliftForceGenerator) UpdateForce(particle *Particle, _ float64) {
+func (u *UpliftForceGenerator) UpdateForce(particle *Particle, duration float64) {
 	// When the force generator is asked to apply its force,
 	// it should test the X-Z coordinate of the object against the origin. If this coordinate
 	// is within *a given distance of the origin*, then the uplift should be applied.
@@ -189,10 +240,9 @@ func NewAirBrakeForceGenerator(normK1, normK2, brakeK1, brakeK2 float64) *AirBra
 }
 
 func (a *AirBrakeForceGenerator) UpdateForce(particle *Particle, duration float64) {
-	// FIXME: not being added to the particle
 	if a.On {
-		// a.BrakingDrag.UpdateForce(particle, duration)
+		a.BrakingDrag.UpdateForce(particle, duration)
 	} else {
-		// a.NormalDrag.UpdateForce(particle, duration)
+		a.NormalDrag.UpdateForce(particle, duration)
 	}
 }
